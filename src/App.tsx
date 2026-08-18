@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence, animate } from 'framer-motion'
 import { Brain, Zap, ShieldCheck, Globe, FlaskConical, Radio, Bot, HelpCircle, Timer, Ticket, Sparkles, ChevronRight, ArrowRight } from 'lucide-react'
+import confetti from 'canvas-confetti'
 import gpLogoUrl from '@/imports/Grameenphone_idC0j-VyWQ_0.png'
 import { aiAndILogo } from '@/aiAndILogo_b64'
 import campaignVideo from '@/imports/vidssave.com_Ek-er_Moddhei_Onek___GP_X___PritomHasan__ft._Critical_Mahmood___Fazlu_Majhi__Official_Music_Video__720P.mp4'
@@ -271,6 +272,53 @@ const getGlobalCSS = (theme: 'dark' | 'light') => `
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation: none !important; transition: none !important; }
   }
+
+  @keyframes pulseRing {
+    0%   { transform: scale(1); opacity: .6; }
+    100% { transform: scale(2.2); opacity: 0; }
+  }
+  @keyframes arcDraw {
+    from { stroke-dashoffset: 276.46; }
+  }
+  @keyframes scoreRoll {
+    from { transform: translateY(20px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes gyroShimmer {
+    0%   { opacity: 0; }
+    50%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  @keyframes radarPulse {
+    0%   { transform: scale(1);   opacity: .55; }
+    100% { transform: scale(3.2); opacity: 0;   }
+  }
+  @keyframes orbDrift1 {
+    0%   { transform: translate(0,0)       scale(1);    }
+    33%  { transform: translate(6%,-8%)    scale(1.08); }
+    66%  { transform: translate(-5%,4%)    scale(.95);  }
+    100% { transform: translate(0,0)       scale(1);    }
+  }
+  @keyframes orbDrift2 {
+    0%   { transform: translate(0,0)       scale(1);    }
+    40%  { transform: translate(-7%,5%)    scale(1.1);  }
+    80%  { transform: translate(4%,-6%)    scale(.92);  }
+    100% { transform: translate(0,0)       scale(1);    }
+  }
+  @keyframes glitchA {
+    0%,92%,100% { clip-path: none; transform: none; opacity: 1; }
+    93%  { clip-path: inset(20% 0 60% 0); transform: translate(-3px,0); opacity: .8; }
+    95%  { clip-path: inset(55% 0 10% 0); transform: translate(3px,0);  opacity: .9; }
+    97%  { clip-path: inset(30% 0 40% 0); transform: translate(-2px,1px); color: #00C8FF; }
+  }
+  @keyframes neonChase {
+    0%   { background-position: 0%   50%; }
+    100% { background-position: 200% 50%; }
+  }
+  @keyframes wordIn {
+    from { opacity: 0; transform: translateY(12px) scale(.9); filter: blur(6px); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);  filter: blur(0); }
+  }
 `
 
 // ─── Ripple hook ──────────────────────────────────────────────────────────────
@@ -284,6 +332,90 @@ function useRipple() {
     setTimeout(() => setRipples(r => r.filter(ri => ri.id !== id)), 700)
   }
   return { ripples, add }
+}
+
+// ─── Gyroscope tilt hook (mobile DeviceOrientation, falls back to mouse) ──────
+function useGyroTilt() {
+  const tiltRef = useRef<HTMLDivElement>(null)
+  const hasGyro = useRef(false)
+
+  useEffect(() => {
+    const onOrientation = (e: DeviceOrientationEvent) => {
+      const el = tiltRef.current; if (!el) return
+      hasGyro.current = true
+      const beta  = Math.min(Math.max(e.beta  ?? 0, -30), 30)   // front-back tilt
+      const gamma = Math.min(Math.max(e.gamma ?? 0, -30), 30)   // left-right tilt
+      const rX =  (beta  / 30) * 10
+      const rY =  (gamma / 30) * 10
+      el.style.transition = 'transform 0.1s ease'
+      el.style.transform = `perspective(1000px) rotateX(${rX}deg) rotateY(${rY}deg) scale3d(1.02,1.02,1.02)`
+    }
+    window.addEventListener('deviceorientation', onOrientation, { passive: true })
+    return () => window.removeEventListener('deviceorientation', onOrientation)
+  }, [])
+
+  // Mouse fallback for desktop
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (hasGyro.current) return
+    const el = tiltRef.current; if (!el) return
+    const rect = el.getBoundingClientRect()
+    const x = e.clientX - rect.left - rect.width / 2
+    const y = e.clientY - rect.top  - rect.height / 2
+    const rX = -(y / (rect.height / 2)) * 10
+    const rY =  (x / (rect.width  / 2)) * 10
+    el.style.transform = `perspective(1000px) rotateX(${rX}deg) rotateY(${rY}deg) scale3d(1.02,1.02,1.02)`
+  }
+  const handleMouseLeave = () => {
+    const el = tiltRef.current; if (!el) return
+    el.style.transition = 'transform 0.6s cubic-bezier(.34,1.1,.64,1)'
+    el.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1,1,1)'
+  }
+
+  return { tiltRef, handleMouseMove, handleMouseLeave }
+}
+
+// ─── Circular countdown timer arc ─────────────────────────────────────────────
+function CircularTimer({ seconds, onExpire, theme }: { seconds: number; onExpire: () => void; theme: 'dark'|'light' }) {
+  const [remaining, setRemaining] = useState(seconds)
+  const R = 18
+  const CIRC = 2 * Math.PI * R  // ~113.1
+  const offset = CIRC * (remaining / seconds)
+  const pct = remaining / seconds
+  const color = pct > 0.5 ? TELENOR_BLUE : pct > 0.25 ? '#facc15' : '#f87171'
+
+  useEffect(() => {
+    setRemaining(seconds)
+    const iv = setInterval(() => {
+      setRemaining(r => {
+        if (r <= 1) { clearInterval(iv); onExpire(); return 0 }
+        return r - 1
+      })
+    }, 1000)
+    return () => clearInterval(iv)
+  }, [seconds])
+
+  return (
+    <div style={{ position: 'relative', width: 48, height: 48, flexShrink: 0 }}>
+      <svg width="48" height="48" style={{ transform: 'rotate(-90deg)' }}>
+        <circle cx="24" cy="24" r={R} fill="none"
+          stroke={theme === 'dark' ? 'rgba(255,255,255,.08)' : 'rgba(28,22,197,.1)'}
+          strokeWidth="3" />
+        <circle cx="24" cy="24" r={R} fill="none"
+          stroke={color} strokeWidth="3" strokeLinecap="round"
+          strokeDasharray={`${CIRC} ${CIRC}`}
+          strokeDashoffset={CIRC - offset}
+          style={{ transition: 'stroke-dashoffset 0.9s linear, stroke 0.3s ease', filter: `drop-shadow(0 0 4px ${color})` }}
+        />
+      </svg>
+      <div style={{
+        position: 'absolute', inset: 0,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: '.72rem', fontWeight: 800,
+        color: theme === 'dark' ? '#fff' : DARK_BLUE,
+        fontVariantNumeric: 'tabular-nums',
+      }}>{remaining}</div>
+    </div>
+  )
 }
 
 // ─── Premium neural-network background ───────────────────────────────────────
@@ -871,6 +1003,107 @@ function FloatIcon({ icon, x, y, delay, color = 'rgba(0,200,255,.15)' }: { icon:
   )
 }
 
+// ─── Radar Pulse Rings (around GP logo) ──────────────────────────────────────
+function RadarRings({ theme }: { theme: 'dark' | 'light' }) {
+  const color = theme === 'dark' ? 'rgba(0,200,255,' : 'rgba(28,22,197,'
+  return (
+    <>
+      {[0, 0.9, 1.8].map((delay, i) => (
+        <div key={i} style={{
+          position: 'absolute', inset: -14,
+          borderRadius: '50%',
+          border: `1px solid ${color}.35)`,
+          animation: `radarPulse 2.8s ${delay}s ease-out infinite`,
+          pointerEvents: 'none',
+        }} />
+      ))}
+    </>
+  )
+}
+
+// ─── Floating Orb Blobs ───────────────────────────────────────────────────────
+function FloatingOrbs({ theme }: { theme: 'dark' | 'light' }) {
+  return (
+    <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+      <div style={{
+        position: 'absolute', top: '-10%', left: '-15%',
+        width: '55vw', height: '55vw', maxWidth: 420, maxHeight: 420,
+        borderRadius: '50%',
+        background: theme === 'dark'
+          ? 'radial-gradient(circle, rgba(0,200,255,.10) 0%, transparent 70%)'
+          : 'radial-gradient(circle, rgba(28,22,197,.08) 0%, transparent 70%)',
+        animation: 'orbDrift1 18s ease-in-out infinite',
+        filter: 'blur(40px)',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: '5%', right: '-10%',
+        width: '60vw', height: '60vw', maxWidth: 460, maxHeight: 460,
+        borderRadius: '50%',
+        background: theme === 'dark'
+          ? 'radial-gradient(circle, rgba(192,38,211,.10) 0%, transparent 70%)'
+          : 'radial-gradient(circle, rgba(192,38,211,.07) 0%, transparent 70%)',
+        animation: 'orbDrift2 24s ease-in-out infinite',
+        filter: 'blur(50px)',
+      }} />
+      <div style={{
+        position: 'absolute', top: '40%', left: '30%',
+        width: '40vw', height: '40vw', maxWidth: 300, maxHeight: 300,
+        borderRadius: '50%',
+        background: theme === 'dark'
+          ? 'radial-gradient(circle, rgba(124,58,237,.08) 0%, transparent 70%)'
+          : 'radial-gradient(circle, rgba(0,200,255,.06) 0%, transparent 70%)',
+        animation: 'orbDrift1 14s 3s ease-in-out infinite reverse',
+        filter: 'blur(35px)',
+      }} />
+    </div>
+  )
+}
+
+// ─── Typewriter loop hook ─────────────────────────────────────────────────────
+function useTypewriterLoop(phrases: string[], speed = 45, pause = 1800, startDelay = 0) {
+  const [text, setText] = useState('')
+  const [phraseIdx, setPhraseIdx] = useState(0)
+  const [deleting, setDeleting] = useState(false)
+  const [started, setStarted] = useState(startDelay === 0)
+
+  useEffect(() => {
+    if (!started) {
+      const t = setTimeout(() => setStarted(true), startDelay)
+      return () => clearTimeout(t)
+    }
+  }, [started, startDelay])
+
+  useEffect(() => {
+    if (!started) return
+    const phrase = phrases[phraseIdx]
+    let timeout: ReturnType<typeof setTimeout>
+
+    // Reset if language or phrase changed entirely
+    if (text.length > 0 && !phrase.startsWith(text) && !deleting) {
+      setText('')
+      setDeleting(false)
+      setPhraseIdx(0)
+      return
+    }
+
+    if (!deleting && text.length < phrase.length) {
+      timeout = setTimeout(() => setText(phrase.slice(0, text.length + 1)), speed)
+    } else if (!deleting && text.length === phrase.length) {
+      if (phrases.length > 1) {
+        timeout = setTimeout(() => setDeleting(true), pause)
+      }
+    } else if (deleting && text.length > 0) {
+      timeout = setTimeout(() => setText(text.slice(0, -1)), speed / 2)
+    } else if (deleting && text.length === 0) {
+      setDeleting(false)
+      setPhraseIdx(i => (i + 1) % phrases.length)
+    }
+    return () => clearTimeout(timeout)
+  }, [text, deleting, phraseIdx, phrases, speed, pause, started])
+
+  return text
+}
+
 // ─── Hero screen ──────────────────────────────────────────────────────────────
 function HeroScreen({ lang, setLang, onStart, theme, setTheme }: {
   lang: Lang; setLang: (l: Lang) => void; onStart: () => void; theme: 'dark' | 'light'; setTheme: (t: 'dark' | 'light') => void
@@ -879,23 +1112,36 @@ function HeroScreen({ lang, setLang, onStart, theme, setTheme }: {
   const t = LANG[lang]
   const WORD = 'GRAMEENPHONE'
   const [scanDone, setScanDone] = useState(false)
+  const ctaRef = useRef<HTMLButtonElement>(null)
+
   useEffect(() => { const id = setTimeout(() => setScanDone(true), 1600); return () => clearTimeout(id) }, [])
 
-  const chips = [
-    { label: lang === 'bn' ? 'AI প্রয়োগ'       : 'Applied AI',      color: TELENOR_BLUE, Icon: Bot },
-    { label: lang === 'bn' ? 'দায়িত্বশীল AI'   : 'Responsible AI',  color: '#4ade80',    Icon: ShieldCheck },
-    { label: lang === 'bn' ? 'ভবিষ্যতের কাজ'  : 'Future of Work',  color: '#a78bfa',    Icon: Globe },
-  ]
+  // Typewriter loop for hero sub phrases
+  const loopPhrases = useMemo(() => lang === 'bn'
+    ? ['AI-র যুগে আপনি কতটা প্রস্তুত? মাত্র তিনটি প্রশ্নের উত্তর দিন এবং আপনার আমন্ত্রণ নিশ্চিত করুন।']
+    : ['Are you ready for the age of AI?', 'Prove your AIQ.', 'Earn your invitation.'], [lang])
+  const loopText = useTypewriterLoop(loopPhrases, 48, 1600, 3450)
 
-  const stats = [
-    { num: 3, label: lang === 'bn' ? 'প্রশ্ন'    : 'Questions',  Icon: HelpCircle, color: TELENOR_BLUE },
-  ]
-
-  const chipV = { hidden: { opacity: 0, scale: .7, y: 10 }, show: { opacity: 1, scale: 1, y: 0, transition: { type: 'spring', stiffness: 300, damping: 20 } } }
-  const statV = { hidden: { opacity: 0, y: 22 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 250, damping: 22 } } }
+  // Magnetic CTA — follows finger/cursor slightly
+  const handleCtaMove = (e: React.MouseEvent<HTMLButtonElement> | React.TouchEvent<HTMLButtonElement>) => {
+    const btn = ctaRef.current; if (!btn) return
+    const rect = btn.getBoundingClientRect()
+    const clientX = 'touches' in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
+    const clientY = 'touches' in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
+    const dx = (clientX - (rect.left + rect.width / 2))  / (rect.width  / 2)
+    const dy = (clientY - (rect.top  + rect.height / 2)) / (rect.height / 2)
+    btn.style.transform = `translate(${dx * 6}px, ${dy * 4}px) scale(1.04)`
+  }
+  const handleCtaLeave = () => {
+    const btn = ctaRef.current; if (!btn) return
+    btn.style.transform = 'translate(0,0) scale(1)'
+  }
 
   return (
     <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 20px', textAlign: 'center', overflowY: 'auto' }}>
+
+      {/* Floating ambient orb blobs */}
+      <FloatingOrbs theme={theme} />
 
       {/* floating lucide icons — ambient decoration */}
       <FloatIcon icon={<Brain size={26} strokeWidth={1.2} />}       x="5%"  y="11%" delay={3.4} color={theme === 'dark' ? "rgba(0,200,255,.18)" : "rgba(28,22,197,.38)"} />
@@ -926,7 +1172,7 @@ function HeroScreen({ lang, setLang, onStart, theme, setTheme }: {
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: 460, width: '100%', paddingBottom: 40, paddingTop: 24 }}>
 
-        {/* GP mark */}
+        {/* GP mark with RADAR PULSE RINGS */}
         <motion.div
           initial={{ scale: 0, rotate: -25, opacity: 0, filter: 'blur(18px)' }}
           animate={{ scale: 1, rotate: 0, opacity: 1, filter: `blur(0px) drop-shadow(0 0 20px ${GP_BLUE}) drop-shadow(0 0 40px rgba(25,170,248,.4))` }}
@@ -934,11 +1180,9 @@ function HeroScreen({ lang, setLang, onStart, theme, setTheme }: {
           style={{ marginBottom: 14, position: 'relative' }}
         >
           <GpMark size={52} />
-          <motion.div initial={{ scale: .4, opacity: .9 }} animate={{ scale: 3, opacity: 0 }} transition={{ delay: .3, duration: .9, ease: 'easeOut' }}
-            style={{ position: 'absolute', inset: -4, borderRadius: '50%', border: `1.5px solid ${GP_BLUE}`, pointerEvents: 'none' }} />
         </motion.div>
 
-        {/* GRAMEENPHONE letter cascade */}
+        {/* GRAMEENPHONE word-by-word reveal */}
         <div style={{ marginBottom: 20, display: 'flex' }}>
           {WORD.split('').map((ch, i) => (
             <motion.span key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
@@ -948,17 +1192,30 @@ function HeroScreen({ lang, setLang, onStart, theme, setTheme }: {
           ))}
         </div>
 
-        {/* AI&I logo + orbit rings */}
+        {/* AI&I logo + orbit rings + GLITCH effect */}
         <div style={{ position: 'relative', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ position: 'absolute', width: 'clamp(195px, 50vw, 270px)', height: 'clamp(195px, 50vw, 270px)', borderRadius: '50%', border: theme === 'dark' ? '1px solid rgba(0,200,255,.1)' : '1px solid rgba(28,22,197,.1)', pointerEvents: 'none', animation: 'spinCW 11s linear infinite' }}>
           </div>
           <div style={{ position: 'absolute', width: 'clamp(235px, 60vw, 320px)', height: 'clamp(235px, 60vw, 320px)', borderRadius: '50%', border: '1px solid rgba(192,38,211,.07)', pointerEvents: 'none', animation: 'spinCCW 17s linear infinite' }}>
             <div style={{ position: 'absolute', top: -4, left: '50%', width: 8, height: 8, borderRadius: '50%', background: '#c026d3', boxShadow: '0 0 8px #c026d3', marginLeft: -4 }} />
           </div>
+          {/* Glitch overlay image (behind) */}
           <motion.div initial={{ opacity: 0, scale: .5, filter: 'blur(16px)' }} animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
             transition={{ delay: 1.55, duration: .65, type: 'spring', stiffness: 180, damping: 14 }}
-            style={{ filter: 'drop-shadow(0 0 22px rgba(224,64,251,.5)) drop-shadow(0 0 44px rgba(0,200,255,.28))' }}>
-            <img src={aiAndILogo} alt="AI & I" style={{ width: 'clamp(138px, 33vw, 185px)', display: 'block' }} />
+            style={{ position: 'relative' }}>
+            {/* Glitch clones */}
+            <img src={aiAndILogo} alt="" aria-hidden style={{
+              position: 'absolute', top: 0, left: 0,
+              width: 'clamp(138px, 33vw, 185px)',
+              opacity: 0,
+              animation: 'glitchA 7s 3s ease-in-out infinite',
+              filter: 'hue-rotate(180deg)',
+              pointerEvents: 'none',
+            }} />
+            <img src={aiAndILogo} alt="AI & I" style={{
+              width: 'clamp(138px, 33vw, 185px)', display: 'block',
+              filter: 'drop-shadow(0 0 22px rgba(224,64,251,.5)) drop-shadow(0 0 44px rgba(0,200,255,.28))',
+            }} />
           </motion.div>
         </div>
 
@@ -967,7 +1224,6 @@ function HeroScreen({ lang, setLang, onStart, theme, setTheme }: {
           style={{ fontSize: '.58rem', color: theme === 'dark' ? 'rgba(255,255,255,.28)' : 'rgba(7,4,82,.4)', letterSpacing: '.22em', textTransform: 'uppercase', marginBottom: 22 }}>
           powered by grameenphone
         </motion.p>
-
 
         {/* stat pill */}
         <motion.div
@@ -991,31 +1247,59 @@ function HeroScreen({ lang, setLang, onStart, theme, setTheme }: {
         <motion.div initial={{ scaleX: 0, opacity: 0 }} animate={{ scaleX: 1, opacity: 1 }} transition={{ delay: 3.35, duration: .55 }}
           style={{ width: '100%', height: 1, marginBottom: 18, background: 'linear-gradient(90deg, transparent, rgba(224,64,251,.38) 30%, rgba(0,200,255,.38) 70%, transparent)' }} />
 
-        {/* headline */}
+        {/* TYPEWRITER LOOP headline */}
         <motion.p initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 3.45, duration: .48 }}
-          style={{ fontSize: 'clamp(.95rem, 3.5vw, 1.12rem)', fontWeight: 700, lineHeight: 1.6, color: theme === 'dark' ? 'rgba(255,255,255,.82)' : DARK_BLUE, marginBottom: 10 }}>
-          {t.heroSub}
+          style={{ fontSize: 'clamp(.95rem, 3.5vw, 1.12rem)', fontWeight: 700, lineHeight: 1.6, color: theme === 'dark' ? 'rgba(255,255,255,.82)' : DARK_BLUE, marginBottom: 10, minHeight: '2em' }}>
+          {loopText}
+          <span style={{
+            display: 'inline-block', width: 2, height: '1em', background: theme === 'dark' ? TELENOR_BLUE : MID_BLUE,
+            verticalAlign: 'text-bottom', marginLeft: 2,
+            animation: 'chipPulse .7s ease-in-out infinite',
+          }} />
         </motion.p>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3.6, duration: .5 }}
           style={{ fontSize: '.78rem', color: theme === 'dark' ? 'rgba(255,255,255,.38)' : 'rgba(7,4,82,.6)', lineHeight: 1.7, marginBottom: 26, maxWidth: 360 }}>
           {t.heroDetail}
         </motion.p>
 
-        {/* CTA */}
+        {/* CTA — NEON BORDER CHASE + MAGNETIC effect */}
         <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 3.65, duration: .45, type: 'spring', stiffness: 200 }}>
-          <motion.button
+          <button
+            ref={ctaRef}
             onClick={e => { add(e as any); onStart() }}
-            whileHover={{ scale: 1.04, boxShadow: '0 10px 40px rgba(192,38,211,.6), 0 4px 20px rgba(0,200,255,.35)' }}
-            whileTap={{ scale: .97 }}
-            style={{ position: 'relative', overflow: 'hidden', display: 'inline-flex', alignItems: 'center', gap: 10, padding: '15px 48px', borderRadius: 40, border: 'none', background: 'linear-gradient(135deg, #c026d3 0%, #7c3aed 40%, #0ea5e9 100%)', color: '#fff', fontWeight: 800, fontSize: '1rem', fontFamily: 'inherit', cursor: 'pointer', letterSpacing: '.06em', boxShadow: '0 4px 28px rgba(192,38,211,.42), 0 2px 12px rgba(0,200,255,.18)' }}
+            onMouseMove={handleCtaMove}
+            onMouseLeave={handleCtaLeave}
+            onTouchMove={handleCtaMove}
+            onTouchEnd={handleCtaLeave}
+            style={{
+              position: 'relative', overflow: 'hidden',
+              display: 'inline-flex', alignItems: 'center', gap: 10,
+              padding: '15px 48px', borderRadius: 40,
+              border: 'none',
+              background: 'linear-gradient(135deg, #c026d3 0%, #7c3aed 40%, #0ea5e9 100%)',
+              color: '#fff', fontWeight: 800, fontSize: '1rem', fontFamily: 'inherit',
+              cursor: 'pointer', letterSpacing: '.06em',
+              boxShadow: '0 4px 28px rgba(192,38,211,.42), 0 2px 12px rgba(0,200,255,.18)',
+              transition: 'transform 0.2s cubic-bezier(.34,1.1,.64,1), box-shadow 0.2s ease',
+            }}
           >
             {ripples.map(r => (
               <span key={r.id} style={{ position: 'absolute', left: r.x - 10, top: r.y - 10, width: 20, height: 20, borderRadius: '50%', background: 'rgba(255,255,255,.35)', animation: 'rippleOut .7s ease-out forwards', pointerEvents: 'none' }} />
             ))}
+            {/* Shimmer sweep */}
             <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,.16) 50%, transparent 65%)', pointerEvents: 'none', animation: 'btnShimmer 3.8s ease-in-out infinite' }} />
+            {/* Neon border chase */}
+            <span style={{
+              position: 'absolute', inset: 0, borderRadius: 40,
+              background: 'linear-gradient(90deg, transparent, rgba(0,200,255,.7), rgba(192,38,211,.7), transparent) no-repeat',
+              backgroundSize: '200% 2px',
+              backgroundPosition: '0% 0%',
+              animation: 'neonChase 2.2s linear infinite',
+              pointerEvents: 'none',
+            }} />
             {t.start}
             <ArrowRight size={18} strokeWidth={2.5} />
-          </motion.button>
+          </button>
         </motion.div>
       </div>
     </div>
@@ -1031,34 +1315,22 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect, theme }: {
   const [cardVisible, setCardVisible] = useState(false)
   const q = QUESTIONS[currentQ]
 
-  // Dynamic 3D tilt coordinates
-  const tiltRef = useRef<HTMLDivElement>(null)
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const el = tiltRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const x = e.clientX - rect.left - rect.width / 2
-    const y = e.clientY - rect.top - rect.height / 2
-    // rotate up to 10 degrees
-    const rX = -(y / (rect.height / 2)) * 10
-    const rY = (x / (rect.width / 2)) * 10
-    el.style.transform = `perspective(1000px) rotateX(${rX}deg) rotateY(${rY}deg) scale3d(1.02, 1.02, 1.02)`
-  }
-  const handleMouseLeave = () => {
-    const el = tiltRef.current
-    if (!el) return
-    el.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)'
-  }
+  // Gyroscope + mouse tilt via shared hook
+  const { tiltRef, handleMouseMove, handleMouseLeave } = useGyroTilt()
 
   useEffect(() => {
     setDisplayed(''); setCardVisible(false)
     const t1 = setTimeout(() => setCardVisible(true), 60)
     let i = 0
-    const iv = setInterval(() => {
-      i++; setDisplayed(q.text.slice(0, i))
-      if (i >= q.text.length) clearInterval(iv)
-    }, 17)
-    return () => { clearTimeout(t1); clearInterval(iv) }
+    let iv: ReturnType<typeof setInterval>
+    // Wait for the card flip transition to finish before typing
+    const t2 = setTimeout(() => {
+      iv = setInterval(() => {
+        i++; setDisplayed(q.text.slice(0, i))
+        if (i >= q.text.length) clearInterval(iv)
+      }, 15)
+    }, 1200)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearInterval(iv) }
   }, [currentQ, q.text])
 
   const categoryColors: Record<string, string> = {
@@ -1073,6 +1345,7 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect, theme }: {
       position: 'relative', zIndex: 1,
       minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center',
       padding: '84px 14px 120px', overflowY: 'auto',
+      perspective: 1500, // True 3D depth for the card flip
     }}>
       {/* outer glow card wrapper */}
       <div 
@@ -1081,103 +1354,115 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect, theme }: {
         onMouseLeave={handleMouseLeave}
         style={{
           width: '100%', maxWidth: 540,
+          display: 'grid', // Magic trick for overlapping AnimatePresence cards
           opacity: cardVisible ? 1 : 0,
           transform: cardVisible ? 'translateY(0) scale(1)' : 'translateY(24px) scale(.97)',
           transition: 'opacity .4s ease, transform .2s ease',
           transformStyle: 'preserve-3d',
         }}
       >
-        {/* Question card */}
-        <div style={{
-          background: theme === 'dark'
-            ? 'linear-gradient(155deg, rgba(20,14,100,.75) 0%, rgba(7,4,82,.85) 100%)'
-            : 'linear-gradient(155deg, rgba(206,242,247,.9) 0%, rgba(228,251,254,.95) 100%)',
-          border: theme === 'dark' ? `1px solid rgba(0,200,255,.14)` : `1px solid rgba(28,22,197,.18)`,
-          borderRadius: 24,
-          backdropFilter: 'blur(24px)',
-          overflow: 'hidden',
-          boxShadow: theme === 'dark'
-            ? `0 0 0 1px rgba(0,200,255,.06), 0 32px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07)`
-            : `0 0 0 1px rgba(28,22,197,.05), 0 20px 48px rgba(28,22,197,.12), inset 0 1px 0 rgba(255,255,255,.8)`,
-          marginBottom: 10,
-          transition: 'background 0.8s ease, border-color 0.8s ease, box-shadow 0.8s ease',
-          transform: 'translateZ(20px)', // Elevates the content in 3D perspective space
-        }}>
-          {/* colored top accent bar */}
-          <div style={{
-            height: 3,
-            background: `linear-gradient(90deg, ${catColor}aa, ${catColor}, ${catColor}44)`,
-            boxShadow: `0 0 16px ${catColor}88`,
-          }} />
-
-          <div style={{ padding: '22px 22px 24px' }}>
-            {/* category + counter row */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-              <span style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: `${catColor}18`,
-                border: `1px solid ${catColor}44`,
-                color: catColor,
-                fontSize: '.67rem', fontWeight: 800, letterSpacing: '.14em',
-                textTransform: 'uppercase', padding: '5px 13px', borderRadius: 22,
-              }}>
-                <span style={{ width: 5, height: 5, borderRadius: '50%', background: catColor, boxShadow: `0 0 6px ${catColor}` }} />
-                {q.category}
-              </span>
-            </div>
-
-            {/* typewriter question */}
-            <p style={{
-              fontSize: '1.1rem', fontWeight: 600, color: theme === 'dark' ? OFF_WHITE : DARK_BLUE,
-              lineHeight: 1.65, minHeight: '4.8em',
-              letterSpacing: '-.01em',
-              transition: 'color 0.8s ease',
-            }}>
-              {displayed}
-              <span style={{
-                display: 'inline-block', width: 2, height: '1.1em',
-                background: theme === 'dark' ? TELENOR_BLUE : MID_BLUE, verticalAlign: 'text-bottom', marginLeft: 2,
-                opacity: displayed.length < q.text.length ? 1 : 0,
-                boxShadow: theme === 'dark' ? `0 0 8px ${TELENOR_BLUE}` : `0 0 8px ${MID_BLUE}`,
-                transition: 'opacity .15s',
-              }} />
-            </p>
-
-            {/* electric scan line */}
+        <AnimatePresence>
+          <motion.div
+            key={currentQ}
+            initial={{ opacity: 0, rotateY: 45, rotateX: 10, scale: 0.8 }}
+            animate={{ opacity: 1, rotateY: 0, rotateX: 0, scale: 1 }}
+            exit={{ opacity: 0, rotateY: -45, rotateX: -10, scale: 0.8 }}
+            transition={{ duration: 1.5, ease: [0.22, 1, 0.36, 1] }}
+            style={{ width: '100%', display: 'flex', flexDirection: 'column', transformStyle: 'preserve-3d', transformOrigin: 'center center', gridArea: '1 / 1' }}
+          >
+            {/* Question card */}
             <div style={{
-              position: 'relative',
-              height: 1.5,
-              width: '100%',
-              borderRadius: 1,
-              background: `linear-gradient(90deg, transparent, rgba(0,200,255,.18) 40%, rgba(0,200,255,.35) 60%, transparent)`,
-              marginTop: 8,
+              background: theme === 'dark'
+                ? 'linear-gradient(155deg, rgba(20,14,100,.75) 0%, rgba(7,4,82,.85) 100%)'
+                : 'linear-gradient(155deg, rgba(206,242,247,.9) 0%, rgba(228,251,254,.95) 100%)',
+              border: theme === 'dark' ? `1px solid rgba(0,200,255,.14)` : `1px solid rgba(28,22,197,.18)`,
+              borderRadius: 24,
+              backdropFilter: 'blur(24px)',
               overflow: 'hidden',
+              boxShadow: theme === 'dark'
+                ? `0 0 0 1px rgba(0,200,255,.06), 0 32px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07)`
+                : `0 0 0 1px rgba(28,22,197,.05), 0 20px 48px rgba(28,22,197,.12), inset 0 1px 0 rgba(255,255,255,.8)`,
+              marginBottom: 10,
+              transition: 'background 0.8s ease, border-color 0.8s ease, box-shadow 0.8s ease',
+              transform: 'translateZ(20px)', // Elevates the content in 3D perspective space
             }}>
-              {/* comet head */}
+              {/* colored top accent bar */}
               <div style={{
-                position: 'absolute', top: '50%',
-                transform: 'translateY(-50%)',
-                width: 120, height: 10,
-                background: `linear-gradient(90deg, transparent, ${TELENOR_BLUE}cc, #fff, ${TELENOR_BLUE}cc, transparent)`,
-                borderRadius: 4,
-                filter: `blur(2px)`,
-                boxShadow: `0 0 12px 3px ${TELENOR_BLUE}, 0 0 28px 6px rgba(0,200,255,.45)`,
-                animation: 'scanComet 2.4s ease-in-out infinite',
+                height: 3,
+                background: `linear-gradient(90deg, ${catColor}aa, ${catColor}, ${catColor}44)`,
+                boxShadow: `0 0 16px ${catColor}88`,
               }} />
-            </div>
-          </div>
-        </div>
 
-        {/* Options list */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {q.options.map((text, i) => (
-            <OptionButton key={`${currentQ}-${i}`} index={i} text={text}
-              selected={selected} feedback={feedback}
-              correct={q.correct} onSelect={onSelect}
-              delay={i * 55} theme={theme}
-            />
-          ))}
-        </div>
+              <div style={{ padding: '22px 22px 24px' }}>
+                {/* category + counter row */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    background: `${catColor}18`,
+                    border: `1px solid ${catColor}44`,
+                    color: catColor,
+                    fontSize: '.67rem', fontWeight: 800, letterSpacing: '.14em',
+                    textTransform: 'uppercase', padding: '5px 13px', borderRadius: 22,
+                  }}>
+                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: catColor, boxShadow: `0 0 6px ${catColor}` }} />
+                    {q.category}
+                  </span>
+                </div>
+
+                {/* typewriter question */}
+                <p style={{
+                  fontSize: '1.1rem', fontWeight: 600, color: theme === 'dark' ? OFF_WHITE : DARK_BLUE,
+                  lineHeight: 1.65, minHeight: '4.8em',
+                  letterSpacing: '-.01em',
+                  transition: 'color 0.8s ease',
+                }}>
+                  {displayed}
+                  <span style={{
+                    display: 'inline-block', width: 2, height: '1.1em',
+                    background: theme === 'dark' ? TELENOR_BLUE : MID_BLUE, verticalAlign: 'text-bottom', marginLeft: 2,
+                    opacity: displayed.length < q.text.length ? 1 : 0,
+                    boxShadow: theme === 'dark' ? `0 0 8px ${TELENOR_BLUE}` : `0 0 8px ${MID_BLUE}`,
+                    transition: 'opacity .15s',
+                  }} />
+                </p>
+
+                {/* electric scan line */}
+                <div style={{
+                  position: 'relative',
+                  height: 1.5,
+                  width: '100%',
+                  borderRadius: 1,
+                  background: `linear-gradient(90deg, transparent, rgba(0,200,255,.18) 40%, rgba(0,200,255,.35) 60%, transparent)`,
+                  marginTop: 8,
+                  overflow: 'hidden',
+                }}>
+                  {/* comet head */}
+                  <div style={{
+                    position: 'absolute', top: '50%',
+                    transform: 'translateY(-50%)',
+                    width: 120, height: 10,
+                    background: `linear-gradient(90deg, transparent, ${TELENOR_BLUE}cc, #fff, ${TELENOR_BLUE}cc, transparent)`,
+                    borderRadius: 4,
+                    filter: `blur(2px)`,
+                    boxShadow: `0 0 12px 3px ${TELENOR_BLUE}, 0 0 28px 6px rgba(0,200,255,.45)`,
+                    animation: 'scanComet 2.4s ease-in-out infinite',
+                  }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Options list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {q.options.map((text, i) => (
+                <OptionButton key={`${currentQ}-${i}`} index={i} text={text}
+                  selected={selected} feedback={feedback}
+                  correct={q.correct} onSelect={onSelect}
+                  delay={i * 55} theme={theme}
+                />
+              ))}
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   )
@@ -1198,29 +1483,49 @@ function AnimCount({ to }: { to: number }) {
 function ResultsScreen({ score, lang, onReplay, theme }: { score: number; lang: Lang; onReplay: () => void; theme: 'dark' | 'light' }) {
   const CIRC = Math.round(2 * Math.PI * 64)
   const [offset, setOffset] = useState(CIRC)
-  const [visible, setVisible] = useState(false)
   const replayBtnRef = useRef<HTMLButtonElement>(null)
   const { ripples, add } = useRipple()
   const t = LANG[lang]
 
   useEffect(() => {
-    const t1 = setTimeout(() => setVisible(true), 60)
     const t2 = setTimeout(() => setOffset(CIRC - (score / 3) * CIRC), 260)
-    return () => { clearTimeout(t1); clearTimeout(t2) }
+
+    // 🎉 Confetti burst for perfect score
+    if (score === 3) {
+      const fire = (particleRatio: number, opts: object) => {
+        confetti({
+          origin: { y: 0.5 },
+          ...opts,
+          particleCount: Math.floor(200 * particleRatio),
+        })
+      }
+      const t3 = setTimeout(() => {
+        fire(0.25, { spread: 26, startVelocity: 55, colors: ['#00C8FF', '#B4FFFF', '#070452'] })
+        fire(0.2,  { spread: 60, colors: ['#FFD700', '#c026d3', '#4ade80'] })
+        fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8, colors: ['#00C8FF', '#ffffff'] })
+        fire(0.1,  { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 })
+        fire(0.1,  { spread: 120, startVelocity: 45, colors: ['#FFD700', '#c026d3'] })
+      }, 400)
+      return () => { clearTimeout(t2); clearTimeout(t3) }
+    }
+
+    return () => { clearTimeout(t2) }
   }, [score])
 
   const ring = score === 3 ? '#FFD700' : score === 2 ? '#4ade80' : score === 1 ? TELENOR_BLUE : SEC_RED
 
   return (
-    <div style={{
-      position: 'relative', zIndex: 1,
-      minHeight: '100vh', overflowY: 'auto',
-      display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '80px 16px 50px',
-      opacity: visible ? 1 : 0,
-      transform: visible ? 'translateY(0)' : 'translateY(28px)',
-      transition: 'opacity .45s ease, transform .45s ease',
-    }}>
+    <motion.div
+      initial={{ opacity: 0, y: 60, scale: 0.9, filter: 'blur(10px)' }}
+      animate={{ opacity: 1, y: 0, scale: 1, filter: 'blur(0px)' }}
+      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+      style={{
+        position: 'relative', zIndex: 1,
+        minHeight: '100vh', overflowY: 'auto',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        padding: '80px 16px 50px',
+      }}
+    >
       <div style={{ width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
 
         {/* score ring + title row */}
@@ -1401,11 +1706,11 @@ function ResultsScreen({ score, lang, onReplay, theme }: { score: number; lang: 
         </div>
 
       </div>
-    </div>
+    </motion.div>
   )
 }
 
-// ─── Root ─────────────────────────────────────────────────────────────────────
+// ─── App component ─────────────────────────────────────────────────────────────────────
 export default function App() {
   const [theme, setTheme]         = useState<'dark' | 'light'>(() => {
     const saved = localStorage.getItem('gp-quiz-theme')
