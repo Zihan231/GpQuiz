@@ -813,7 +813,7 @@ function OptionButton({ index, text, selected, feedback, correct, onSelect, dela
   let extraShadow = ''
 
   if (feedback !== null) {
-    if (isCorrect) {
+    if (isSelected && isCorrect) {
       borderColor = '#4ade80'
       bg = 'rgba(34,197,94,.1)'
       badgeBg = '#22c55e'
@@ -823,7 +823,7 @@ function OptionButton({ index, text, selected, feedback, correct, onSelect, dela
       textColor = '#fff'
       extraShadow = 'correctFlash .6s ease'
       cardAnim = 'none'
-    } else if (isSelected) {
+    } else if (isSelected && !isCorrect) {
       borderColor = '#f87171'
       bg = 'rgba(239,68,68,.08)'
       badgeBg = '#ef4444'
@@ -891,7 +891,7 @@ function OptionButton({ index, text, selected, feedback, correct, onSelect, dela
 
       {/* left badge strip */}
       <div style={{
-        width: 52, alignSelf: 'stretch', flexShrink: 0,
+        width: 'clamp(40px, 12vw, 52px)', alignSelf: 'stretch', flexShrink: 0,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         background: badgeBg,
         borderRight: `1.5px solid ${badgeBorder}`,
@@ -906,8 +906,8 @@ function OptionButton({ index, text, selected, feedback, correct, onSelect, dela
 
       {/* text */}
       <span style={{
-        flex: 1, padding: '15px 16px',
-        fontSize: '.92rem', fontWeight: 500,
+        flex: 1, padding: 'clamp(10px, 3vh, 15px) clamp(12px, 4vw, 16px)',
+        fontSize: 'clamp(.85rem, 4vw, .92rem)', fontWeight: 500,
         color: textColor, lineHeight: 1.55,
         transition: 'color .22s',
       }}>
@@ -1335,7 +1335,7 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect, theme }: {
     <div style={{
       position: 'relative', zIndex: 1,
       minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center',
-      padding: '84px 14px 120px', overflowY: 'auto',
+      padding: 'max(10vh, 60px) 14px max(15vh, 80px)', overflowY: 'auto',
       perspective: 1500, // True 3D depth for the card flip
     }}>
       {/* outer glow card wrapper */}
@@ -1384,7 +1384,7 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect, theme }: {
                 boxShadow: `0 0 16px ${catColor}88`,
               }} />
 
-              <div style={{ padding: '22px 22px 24px' }}>
+              <div style={{ padding: 'clamp(16px, 5vw, 22px) clamp(16px, 5vw, 22px) clamp(18px, 6vw, 24px)' }}>
                 {/* category + counter row */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
                   <span style={{
@@ -1514,19 +1514,19 @@ function ResultsScreen({ score, lang, onReplay, theme }: { score: number; lang: 
         position: 'relative', zIndex: 1,
         minHeight: '100vh', overflowY: 'auto',
         display: 'flex', flexDirection: 'column', alignItems: 'center',
-        padding: '80px 16px 50px',
+        padding: 'max(8vh, 60px) 16px max(6vh, 40px)',
       }}
     >
       <div style={{ width: '100%', maxWidth: 480, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20 }}>
 
         {/* score ring + title row */}
         <div style={{
-          width: '100%', display: 'flex', alignItems: 'center', gap: 20,
+          width: '100%', display: 'flex', alignItems: 'center', gap: 'clamp(12px, 4vw, 20px)',
           background: theme === 'dark'
             ? 'linear-gradient(145deg, rgba(20,14,100,.7), rgba(7,4,82,.8))'
             : 'linear-gradient(145deg, rgba(232,253,255,.9), rgba(255,255,255,.95))',
           border: theme === 'dark' ? `1px solid rgba(0,200,255,.12)` : `1px solid rgba(28,22,197,.12)`,
-          borderRadius: 24, padding: '22px 24px',
+          borderRadius: 24, padding: 'clamp(16px, 5vw, 22px) clamp(14px, 4vw, 24px)',
           backdropFilter: 'blur(20px)',
           boxShadow: theme === 'dark'
             ? `0 0 0 1px rgba(0,200,255,.06), 0 24px 60px rgba(0,0,0,.4)`
@@ -1535,8 +1535,8 @@ function ResultsScreen({ score, lang, onReplay, theme }: { score: number; lang: 
           transition: 'background 0.8s ease, border-color 0.8s ease',
         }}>
           {/* ring */}
-          <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
-            <svg width="110" height="110" style={{ transform: 'rotate(-90deg)' }}>
+          <div style={{ position: 'relative', width: 'clamp(85px, 25vw, 110px)', height: 'clamp(85px, 25vw, 110px)', flexShrink: 0 }}>
+            <svg width="100%" height="100%" viewBox="0 0 110 110" style={{ transform: 'rotate(-90deg)' }}>
               <circle cx="55" cy="55" r="44" fill="none" stroke={theme === 'dark' ? "rgba(28,22,197,.2)" : "rgba(28,22,197,.07)"} strokeWidth="7" />
               <circle cx="55" cy="55" r="44" fill="none"
                 stroke={ring} strokeWidth="7" strokeLinecap="round"
@@ -1557,10 +1557,10 @@ function ResultsScreen({ score, lang, onReplay, theme }: { score: number; lang: 
 
           {/* title + sub + dots */}
           <div style={{ flex: 1 }}>
-            <h2 style={{ fontSize: '1.45rem', fontWeight: 900, fontStyle: 'italic', color: theme === 'dark' ? '#fff' : DARK_BLUE, lineHeight: 1.2, marginBottom: 6 }}>
+            <h2 style={{ fontSize: 'clamp(1.15rem, 5vw, 1.45rem)', fontWeight: 900, fontStyle: 'italic', color: theme === 'dark' ? '#fff' : DARK_BLUE, lineHeight: 1.2, marginBottom: 6 }}>
               {t.resultTitles[score]}
             </h2>
-            <p style={{ fontSize: '.82rem', color: theme === 'dark' ? LIGHT_BLUE : MID_BLUE, lineHeight: 1.55, marginBottom: 12 }}>
+            <p style={{ fontSize: 'clamp(.72rem, 3.5vw, .82rem)', color: theme === 'dark' ? LIGHT_BLUE : MID_BLUE, lineHeight: 1.55, marginBottom: 12 }}>
               {t.resultSubs[score]}
             </p>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -1590,8 +1590,8 @@ function ResultsScreen({ score, lang, onReplay, theme }: { score: number; lang: 
               : 'linear-gradient(135deg, rgba(192,38,211,.08) 0%, rgba(28,22,197,.08) 100%)',
             border: theme === 'dark' ? '1px solid rgba(255,255,255,.12)' : '1px solid rgba(28,22,197,.15)',
             borderRadius: 20,
-            padding: '18px 24px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+            padding: 'clamp(14px, 4vw, 18px) clamp(16px, 5vw, 24px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'clamp(8px, 3vw, 16px)',
             backdropFilter: 'blur(16px)',
             boxShadow: theme === 'dark'
               ? '0 16px 40px rgba(192,38,211,.15), inset 0 0 20px rgba(255,255,255,.05)'
@@ -1609,7 +1609,7 @@ function ResultsScreen({ score, lang, onReplay, theme }: { score: number; lang: 
                 src={aiAndILogo}
                 alt="AI & I"
                 style={{
-                  width: 'clamp(70px, 16vw, 100px)',
+                  width: 'clamp(60px, 18vw, 100px)',
                   height: 'auto',
                   display: 'block',
                   filter: theme === 'dark' ? 'drop-shadow(0 2px 12px rgba(224,64,251,.8))' : 'drop-shadow(0 2px 8px rgba(28,22,197,.35))',
