@@ -115,20 +115,21 @@ type Particle = {
 }
 
 // ─── Global CSS ──────────────────────────────────────────────────────────────
-const GLOBAL_CSS = `
+const getGlobalCSS = (theme: 'dark' | 'light') => `
   @import url('https://fonts.googleapis.com/css2?family=Barlow:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,700;1,800;1,900&display=swap');
 
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   html, body, #root {
     height: 100%;
     overflow: hidden;
-    background: ${DARK_BLUE};
+    background: ${theme === 'dark' ? DARK_BLUE : '#D0F8FF'};
     font-family: 'Barlow', system-ui, sans-serif;
-    color: #fff;
+    color: ${theme === 'dark' ? '#fff' : DARK_BLUE};
+    transition: background 0.8s ease, color 0.8s ease;
   }
   ::-webkit-scrollbar { width: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(0,200,255,.25); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb { background: ${theme === 'dark' ? 'rgba(0,200,255,.25)' : 'rgba(28,22,197,.25)'}; border-radius: 2px; }
 
   @keyframes drift {
     0%   { transform: translate(0,0) scale(1) rotate(0deg); }
@@ -289,7 +290,7 @@ function useRipple() {
 type NNode = { x: number; y: number; vx: number; vy: number; r: number; pulse: number; pulseSpeed: number }
 
 // no mx/my props — mouse is tracked internally via ref
-function AuroraBackground() {
+function AuroraBackground({ theme }: { theme: 'dark' | 'light' }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const glowRef   = useRef<HTMLDivElement>(null)
   const nodesRef  = useRef<NNode[]>([])
@@ -361,8 +362,10 @@ function AuroraBackground() {
           const dx = nodes[i].x - nodes[j].x, dy = nodes[i].y - nodes[j].y
           const d2 = dx * dx + dy * dy
           if (d2 > CONNECT * CONNECT) continue
-          const alpha = (1 - Math.sqrt(d2) / CONNECT) * .2
-          ctx.strokeStyle = `rgba(0,200,255,${alpha.toFixed(2)})`
+          const alpha = (1 - Math.sqrt(d2) / CONNECT) * (theme === 'dark' ? .2 : .35)
+          ctx.strokeStyle = theme === 'dark' 
+            ? `rgba(0,200,255,${alpha.toFixed(2)})`
+            : `rgba(28,22,197,${alpha.toFixed(2)})`
           ctx.beginPath()
           ctx.moveTo(nodes[i].x, nodes[i].y)
           ctx.lineTo(nodes[j].x, nodes[j].y)
@@ -371,13 +374,15 @@ function AuroraBackground() {
       }
 
       // draw nodes — single pass, no per-node gradient objects
-      ctx.shadowColor = TELENOR_BLUE
+      ctx.shadowColor = theme === 'dark' ? TELENOR_BLUE : MID_BLUE
       ctx.shadowBlur = 5
       nodes.forEach(n => {
         const brightness = .5 + Math.sin(n.pulse) * .3
         ctx.beginPath()
         ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(180,255,255,${(brightness * .8).toFixed(2)})`
+        ctx.fillStyle = theme === 'dark'
+          ? `rgba(180,255,255,${(brightness * .8).toFixed(2)})`
+          : `rgba(28,22,197,${(brightness * .8).toFixed(2)})`
         ctx.fill()
       })
       ctx.shadowBlur = 0
@@ -386,19 +391,25 @@ function AuroraBackground() {
     }
     draw()
     return () => { cancelAnimationFrame(rafRef.current); window.removeEventListener('resize', resize) }
-  }, [])
+  }, [theme])
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 0, overflow: 'hidden' }}>
       {/* Deep space base — three-stop gradient for richness */}
       <div style={{
         position: 'absolute', inset: 0,
-        background: `
+        background: theme === 'dark' ? `
           radial-gradient(ellipse 80% 60% at 20% 10%, #0d0880 0%, transparent 55%),
           radial-gradient(ellipse 60% 50% at 85% 80%, #030a3a 0%, transparent 60%),
           radial-gradient(ellipse 50% 40% at 70% 5%,  rgba(25,170,248,.18) 0%, transparent 50%),
           linear-gradient(160deg, #080560 0%, #020230 55%, #060140 100%)
+        ` : `
+          radial-gradient(ellipse 80% 60% at 20% 10%, #B4FFFF 0%, transparent 60%),
+          radial-gradient(ellipse 60% 50% at 85% 80%, #D0F8FF 0%, transparent 70%),
+          radial-gradient(ellipse 50% 40% at 70% 5%,  rgba(25,170,248,.2) 0%, transparent 60%),
+          linear-gradient(160deg, #C2F3FD 0%, #E2FAFE 65%, #A6F6FE 100%)
         `,
+        transition: 'background 0.8s ease',
       }} />
 
       {/* Volumetric light shaft from top-center */}
@@ -406,7 +417,9 @@ function AuroraBackground() {
         position: 'absolute', top: 0, left: '50%',
         transform: 'translateX(-50%)',
         width: '70vw', height: '55vh',
-        background: `conic-gradient(from 260deg at 50% -10%, transparent 15%, rgba(0,200,255,.055) 30%, transparent 45%)`,
+        background: theme === 'dark'
+          ? `conic-gradient(from 260deg at 50% -10%, transparent 15%, rgba(0,200,255,.055) 30%, transparent 45%)`
+          : `conic-gradient(from 260deg at 50% -10%, transparent 15%, rgba(28,22,197,.04) 30%, transparent 45%)`,
         filter: 'blur(40px)',
         animation: 'glowPulse 8s ease infinite',
       }} />
@@ -416,19 +429,22 @@ function AuroraBackground() {
         position: 'absolute', bottom: '-10%', left: '50%',
         transform: 'translateX(-50%)',
         width: '100%', height: '45vh',
-        background: `radial-gradient(ellipse 90% 60% at 50% 100%, rgba(28,22,197,.45) 0%, transparent 65%)`,
+        background: theme === 'dark'
+          ? `radial-gradient(ellipse 90% 60% at 50% 100%, rgba(28,22,197,.45) 0%, transparent 65%)`
+          : `radial-gradient(ellipse 90% 60% at 50% 100%, rgba(180,255,255,.6) 0%, transparent 65%)`,
         filter: 'blur(60px)',
+        transition: 'background 0.8s ease',
       }} />
 
       {/* Neural network canvas */}
-      <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, opacity: .85 }} />
+      <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, opacity: theme === 'dark' ? .85 : 0.6 }} />
 
       {/* Film grain overlay for texture */}
       <div style={{
         position: 'absolute', inset: 0,
         backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E")`,
         backgroundSize: '180px 180px',
-        opacity: .6,
+        opacity: theme === 'dark' ? .6 : .35,
         mixBlendMode: 'overlay',
         pointerEvents: 'none',
       }} />
@@ -438,7 +454,9 @@ function AuroraBackground() {
         position: 'absolute', pointerEvents: 'none',
         left: -500, top: -500, width: 560, height: 560,
         borderRadius: '50%',
-        background: `radial-gradient(circle, rgba(0,200,255,.07) 0%, transparent 65%)`,
+        background: theme === 'dark'
+          ? `radial-gradient(circle, rgba(0,200,255,.07) 0%, transparent 65%)`
+          : `radial-gradient(circle, rgba(28,22,197,.05) 0%, transparent 65%)`,
       }} />
     </div>
   )
@@ -466,17 +484,40 @@ function GpMark({ size = 40 }: { size?: number }) {
   )
 }
 
-// ─── Topbar with real logo ────────────────────────────────────────────────────
-function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
+// ─── Theme switcher component ────────────────────────────────────────────────
+function ThemeToggle({ theme, setTheme }: { theme: 'dark' | 'light'; setTheme: (t: 'dark' | 'light') => void }) {
   return (
-    <div style={{ display: 'flex', background: 'rgba(255,255,255,.07)', borderRadius: 22, padding: 3, gap: 2 }}>
+    <button
+      onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+      style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: theme === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(7,4,82,.07)',
+        border: 'none', borderRadius: '50%', width: 34, height: 34, cursor: 'pointer',
+        color: theme === 'dark' ? '#fff' : DARK_BLUE,
+        transition: 'all .25s ease',
+      }}
+      title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+    >
+      {theme === 'dark' ? (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+      ) : (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+      )}
+    </button>
+  )
+}
+
+// ─── Topbar with real logo ────────────────────────────────────────────────────
+function LangToggle({ lang, setLang, theme }: { lang: Lang; setLang: (l: Lang) => void; theme: 'dark' | 'light' }) {
+  return (
+    <div style={{ display: 'flex', background: theme === 'dark' ? 'rgba(255,255,255,.07)' : 'rgba(7,4,82,.07)', borderRadius: 22, padding: 3, gap: 2 }}>
       {(['en', 'bn'] as Lang[]).map(l => (
         <button key={l} onClick={() => setLang(l)} style={{
           padding: '5px 14px', borderRadius: 18, border: 'none', cursor: 'pointer',
           fontSize: '.72rem', fontWeight: 700, fontFamily: 'inherit',
           transition: 'all .22s cubic-bezier(.4,0,.2,1)',
           background: lang === l ? TELENOR_BLUE : 'transparent',
-          color: lang === l ? DARK_BLUE : 'rgba(255,255,255,.45)',
+          color: lang === l ? DARK_BLUE : (theme === 'dark' ? 'rgba(255,255,255,.45)' : 'rgba(7,4,82,.5)'),
           boxShadow: lang === l ? `0 2px 10px rgba(0,200,255,.4)` : 'none',
         }}>
           {l === 'en' ? 'EN' : 'বাং'}
@@ -486,22 +527,28 @@ function LangToggle({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void 
   )
 }
 
-function TopBar({ lang, setLang }: { lang: Lang; setLang: (l: Lang) => void }) {
+function TopBar({ lang, setLang, theme, setTheme }: { lang: Lang; setLang: (l: Lang) => void; theme: 'dark' | 'light'; setTheme: (t: 'dark' | 'light') => void }) {
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, zIndex: 10,
-      background: `linear-gradient(to bottom, rgba(7,4,82,.96) 60%, transparent)`,
+      background: theme === 'dark' 
+        ? `linear-gradient(to bottom, rgba(7,4,82,.96) 60%, transparent)`
+        : `linear-gradient(to bottom, rgba(232,253,255,.96) 60%, transparent)`,
       padding: '11px 22px',
       display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      transition: 'background 0.8s ease',
     }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <GpMark size={32} />
-        <div style={{ height: 24, width: 1, background: 'rgba(255,255,255,.12)' }} />
-        <span style={{ color: 'rgba(255,255,255,.55)', fontSize: '.72rem', fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase' }}>
+        <div style={{ height: 24, width: 1, background: theme === 'dark' ? 'rgba(255,255,255,.12)' : 'rgba(7,4,82,.12)' }} />
+        <span style={{ color: theme === 'dark' ? 'rgba(255,255,255,.55)' : 'rgba(7,4,82,.65)', fontSize: '.72rem', fontWeight: 600, letterSpacing: '.14em', textTransform: 'uppercase' }}>
           Grameenphone
         </span>
       </div>
-      <LangToggle lang={lang} setLang={setLang} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <ThemeToggle theme={theme} setTheme={setTheme} />
+        <LangToggle lang={lang} setLang={setLang} theme={theme} />
+      </div>
     </div>
   )
 }
@@ -608,11 +655,11 @@ function HeroOrbs() {
 }
 
 // ─── Option button — premium redesign ────────────────────────────────────────
-function OptionButton({ index, text, selected, feedback, correct, onSelect, delay = 0 }: {
+function OptionButton({ index, text, selected, feedback, correct, onSelect, delay = 0, theme }: {
   index: number; text: string
   selected: number | null; feedback: 'correct' | 'wrong' | null
   correct: number; onSelect: (i: number) => void
-  delay?: number
+  delay?: number; theme: 'dark' | 'light'
 }) {
   const { ripples, add } = useRipple()
   const btnRef = useRef<HTMLButtonElement>(null)
@@ -622,14 +669,14 @@ function OptionButton({ index, text, selected, feedback, correct, onSelect, dela
   const LABELS = ['A', 'B', 'C', 'D']
 
   // state derivation
-  let borderColor = 'rgba(180,255,255,.11)'
-  let bg = 'rgba(14,10,80,.45)'
-  let badgeBg = `rgba(28,22,197,.7)`
-  let badgeBorder = 'rgba(0,200,255,.2)'
+  let borderColor = theme === 'dark' ? 'rgba(180,255,255,.11)' : 'rgba(28,22,197,.2)'
+  let bg = theme === 'dark' ? 'rgba(14,10,80,.45)' : 'rgba(230,250,252,.8)'
+  let badgeBg = theme === 'dark' ? `rgba(28,22,197,.7)` : `rgba(180,255,255,.6)`
+  let badgeBorder = theme === 'dark' ? 'rgba(0,200,255,.2)' : 'rgba(28,22,197,.2)'
   let badgeTxt: string = LABELS[index]
-  let badgeColor = LIGHT_BLUE
+  let badgeColor = theme === 'dark' ? LIGHT_BLUE : MID_BLUE
   let cardAnim = `optionIn .35s ${delay}ms both`
-  let textColor = 'rgba(255,255,255,.82)'
+  let textColor = theme === 'dark' ? 'rgba(255,255,255,.82)' : DARK_BLUE
   let opacity = 1
   let extraShadow = ''
 
@@ -661,10 +708,12 @@ function OptionButton({ index, text, selected, feedback, correct, onSelect, dela
 
   const handleMouseEnter = () => {
     if (disabled || !btnRef.current) return
-    btnRef.current.style.borderColor = TELENOR_BLUE
-    btnRef.current.style.background = 'rgba(0,200,255,.06)'
+    btnRef.current.style.borderColor = theme === 'dark' ? TELENOR_BLUE : MID_BLUE
+    btnRef.current.style.background = theme === 'dark' ? 'rgba(0,200,255,.06)' : 'rgba(28,22,197,.04)'
     btnRef.current.style.transform = 'translateY(-2px)'
-    btnRef.current.style.boxShadow = '0 8px 28px rgba(0,200,255,.14), inset 0 0 0 1px rgba(0,200,255,.14)'
+    btnRef.current.style.boxShadow = theme === 'dark'
+      ? '0 8px 28px rgba(0,200,255,.14), inset 0 0 0 1px rgba(0,200,255,.14)'
+      : '0 8px 28px rgba(28,22,197,.08), inset 0 0 0 1px rgba(28,22,197,.08)'
   }
   const handleMouseLeave = () => {
     if (!btnRef.current) return
@@ -823,8 +872,8 @@ function FloatIcon({ icon, x, y, delay, color = 'rgba(0,200,255,.15)' }: { icon:
 }
 
 // ─── Hero screen ──────────────────────────────────────────────────────────────
-function HeroScreen({ lang, setLang, onStart }: {
-  lang: Lang; setLang: (l: Lang) => void; onStart: () => void
+function HeroScreen({ lang, setLang, onStart, theme, setTheme }: {
+  lang: Lang; setLang: (l: Lang) => void; onStart: () => void; theme: 'dark' | 'light'; setTheme: (t: 'dark' | 'light') => void
 }) {
   const { ripples, add } = useRipple()
   const t = LANG[lang]
@@ -849,13 +898,13 @@ function HeroScreen({ lang, setLang, onStart }: {
     <div style={{ position: 'relative', zIndex: 1, minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 20px', textAlign: 'center', overflowY: 'auto' }}>
 
       {/* floating lucide icons — ambient decoration */}
-      <FloatIcon icon={<Brain size={26} strokeWidth={1.2} />}       x="5%"  y="11%" delay={3.4} color="rgba(0,200,255,.18)" />
-      <FloatIcon icon={<Zap size={22} strokeWidth={1.2} />}         x="88%" y="16%" delay={3.7} color="rgba(192,38,211,.18)" />
-      <FloatIcon icon={<FlaskConical size={20} strokeWidth={1.2} />} x="3%"  y="65%" delay={4.0} color="rgba(164,120,250,.18)" />
-      <FloatIcon icon={<Radio size={20} strokeWidth={1.2} />}        x="90%" y="60%" delay={4.2} color="rgba(0,200,255,.14)" />
-      <FloatIcon icon={<Globe size={18} strokeWidth={1.2} />}        x="13%" y="40%" delay={4.5} color="rgba(74,222,128,.14)" />
-      <FloatIcon icon={<Sparkles size={18} strokeWidth={1.2} />}     x="83%" y="42%" delay={4.8} color="rgba(192,38,211,.16)" />
-      <FloatIcon icon={<Bot size={20} strokeWidth={1.2} />}          x="50%" y="4%"  delay={5.1} color="rgba(0,200,255,.14)" />
+      <FloatIcon icon={<Brain size={26} strokeWidth={1.2} />}       x="5%"  y="11%" delay={3.4} color={theme === 'dark' ? "rgba(0,200,255,.18)" : "rgba(28,22,197,.38)"} />
+      <FloatIcon icon={<Zap size={22} strokeWidth={1.2} />}         x="88%" y="16%" delay={3.7} color={theme === 'dark' ? "rgba(192,38,211,.18)" : "rgba(192,38,211,.38)"} />
+      <FloatIcon icon={<FlaskConical size={20} strokeWidth={1.2} />} x="3%"  y="65%" delay={4.0} color={theme === 'dark' ? "rgba(164,120,250,.18)" : "rgba(124,58,237,.38)"} />
+      <FloatIcon icon={<Radio size={20} strokeWidth={1.2} />}        x="90%" y="60%" delay={4.2} color={theme === 'dark' ? "rgba(0,200,255,.14)" : "rgba(28,22,197,.35)"} />
+      <FloatIcon icon={<Globe size={18} strokeWidth={1.2} />}        x="13%" y="40%" delay={4.5} color={theme === 'dark' ? "rgba(74,222,128,.14)" : "rgba(21,128,61,.38)"} />
+      <FloatIcon icon={<Sparkles size={18} strokeWidth={1.2} />}     x="83%" y="42%" delay={4.8} color={theme === 'dark' ? "rgba(192,38,211,.16)" : "rgba(192,38,211,.35)"} />
+      <FloatIcon icon={<Bot size={20} strokeWidth={1.2} />}          x="50%" y="4%"  delay={5.1} color={theme === 'dark' ? "rgba(0,200,255,.14)" : "rgba(28,22,197,.32)"} />
 
       {/* scan line */}
       <AnimatePresence>
@@ -868,10 +917,11 @@ function HeroScreen({ lang, setLang, onStart }: {
         )}
       </AnimatePresence>
 
-      {/* lang toggle */}
+      {/* lang & theme toggles */}
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2.8, duration: .5 }}
-        style={{ position: 'absolute', top: 18, right: 24, zIndex: 10 }}>
-        <LangToggle lang={lang} setLang={setLang} />
+        style={{ position: 'absolute', top: 18, right: 24, zIndex: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+        <ThemeToggle theme={theme} setTheme={setTheme} />
+        <LangToggle lang={lang} setLang={setLang} theme={theme} />
       </motion.div>
 
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: 460, width: '100%', paddingBottom: 40, paddingTop: 24 }}>
@@ -893,15 +943,14 @@ function HeroScreen({ lang, setLang, onStart }: {
           {WORD.split('').map((ch, i) => (
             <motion.span key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
               transition={{ delay: .65 + i * .05, duration: .28, type: 'spring', stiffness: 320 }}
-              style={{ display: 'inline-block', fontSize: '.67rem', fontWeight: 700, letterSpacing: '.18em', color: 'rgba(255,255,255,.36)' }}
+              style={{ display: 'inline-block', fontSize: '.67rem', fontWeight: 700, letterSpacing: '.18em', color: theme === 'dark' ? 'rgba(255,255,255,.36)' : 'rgba(7,4,82,.45)' }}
             >{ch}</motion.span>
           ))}
         </div>
 
         {/* AI&I logo + orbit rings */}
         <div style={{ position: 'relative', marginBottom: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ position: 'absolute', width: 'clamp(195px, 50vw, 270px)', height: 'clamp(195px, 50vw, 270px)', borderRadius: '50%', border: '1px solid rgba(0,200,255,.1)', pointerEvents: 'none', animation: 'spinCW 11s linear infinite' }}>
-            <div style={{ position: 'absolute', top: -5, left: '50%', width: 10, height: 10, borderRadius: '50%', background: TELENOR_BLUE, boxShadow: `0 0 8px ${TELENOR_BLUE}`, marginLeft: -5 }} />
+          <div style={{ position: 'absolute', width: 'clamp(195px, 50vw, 270px)', height: 'clamp(195px, 50vw, 270px)', borderRadius: '50%', border: theme === 'dark' ? '1px solid rgba(0,200,255,.1)' : '1px solid rgba(28,22,197,.1)', pointerEvents: 'none', animation: 'spinCW 11s linear infinite' }}>
           </div>
           <div style={{ position: 'absolute', width: 'clamp(235px, 60vw, 320px)', height: 'clamp(235px, 60vw, 320px)', borderRadius: '50%', border: '1px solid rgba(192,38,211,.07)', pointerEvents: 'none', animation: 'spinCCW 17s linear infinite' }}>
             <div style={{ position: 'absolute', top: -4, left: '50%', width: 8, height: 8, borderRadius: '50%', background: '#c026d3', boxShadow: '0 0 8px #c026d3', marginLeft: -4 }} />
@@ -915,7 +964,7 @@ function HeroScreen({ lang, setLang, onStart }: {
 
         {/* tagline */}
         <motion.p initial={{ opacity: 0, letterSpacing: '0.45em' }} animate={{ opacity: 1, letterSpacing: '0.22em' }} transition={{ delay: 2.2, duration: .65 }}
-          style={{ fontSize: '.58rem', color: 'rgba(255,255,255,.28)', letterSpacing: '.22em', textTransform: 'uppercase', marginBottom: 22 }}>
+          style={{ fontSize: '.58rem', color: theme === 'dark' ? 'rgba(255,255,255,.28)' : 'rgba(7,4,82,.4)', letterSpacing: '.22em', textTransform: 'uppercase', marginBottom: 22 }}>
           powered by grameenphone
         </motion.p>
 
@@ -924,15 +973,15 @@ function HeroScreen({ lang, setLang, onStart }: {
         <motion.div
           variants={{ hidden: { opacity: 0, y: 16 }, show: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 22, delay: 2.95 } } }}
           initial="hidden" animate="show"
-          style={{ marginBottom: 24, display: 'inline-flex', alignItems: 'center', gap: 12, padding: '10px 20px 10px 12px', borderRadius: 40, background: `rgba(0,200,255,.06)`, border: `1px solid ${TELENOR_BLUE}30`, backdropFilter: 'blur(12px)', boxShadow: `0 0 24px rgba(0,200,255,.08)` }}>
-          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: '50%', background: `${TELENOR_BLUE}18`, border: `1px solid ${TELENOR_BLUE}30` }}>
-            <HelpCircle size={16} color={TELENOR_BLUE} strokeWidth={2} />
+          style={{ marginBottom: 24, display: 'inline-flex', alignItems: 'center', gap: 12, padding: '10px 20px 10px 12px', borderRadius: 40, background: theme === 'dark' ? `rgba(0,200,255,.06)` : `rgba(28,22,197,.06)`, border: theme === 'dark' ? `1px solid ${TELENOR_BLUE}30` : `1px solid ${MID_BLUE}30`, backdropFilter: 'blur(12px)', boxShadow: theme === 'dark' ? `0 0 24px rgba(0,200,255,.08)` : `0 0 24px rgba(28,22,197,.08)` }}>
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: '50%', background: theme === 'dark' ? `${TELENOR_BLUE}18` : `${MID_BLUE}18`, border: theme === 'dark' ? `1px solid ${TELENOR_BLUE}30` : `1px solid ${MID_BLUE}30` }}>
+            <HelpCircle size={16} color={theme === 'dark' ? TELENOR_BLUE : MID_BLUE} strokeWidth={2} />
           </span>
           <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 1 }}>
-            <span style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff', lineHeight: 1 }}>
+            <span style={{ fontSize: '1.5rem', fontWeight: 900, color: theme === 'dark' ? '#fff' : DARK_BLUE, lineHeight: 1 }}>
               <MotionCount to={3} duration={1.2} />
             </span>
-            <span style={{ fontSize: '.62rem', color: `${TELENOR_BLUE}cc`, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase' }}>
+            <span style={{ fontSize: '.62rem', color: theme === 'dark' ? `${TELENOR_BLUE}cc` : `${MID_BLUE}cc`, fontWeight: 600, letterSpacing: '.1em', textTransform: 'uppercase' }}>
               {lang === 'bn' ? 'টি প্রশ্ন' : 'Questions'}
             </span>
           </span>
@@ -944,11 +993,11 @@ function HeroScreen({ lang, setLang, onStart }: {
 
         {/* headline */}
         <motion.p initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 3.45, duration: .48 }}
-          style={{ fontSize: 'clamp(.95rem, 3.5vw, 1.12rem)', fontWeight: 700, lineHeight: 1.6, color: 'rgba(255,255,255,.82)', marginBottom: 10 }}>
+          style={{ fontSize: 'clamp(.95rem, 3.5vw, 1.12rem)', fontWeight: 700, lineHeight: 1.6, color: theme === 'dark' ? 'rgba(255,255,255,.82)' : DARK_BLUE, marginBottom: 10 }}>
           {t.heroSub}
         </motion.p>
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 3.6, duration: .5 }}
-          style={{ fontSize: '.78rem', color: 'rgba(255,255,255,.38)', lineHeight: 1.7, marginBottom: 26, maxWidth: 360 }}>
+          style={{ fontSize: '.78rem', color: theme === 'dark' ? 'rgba(255,255,255,.38)' : 'rgba(7,4,82,.6)', lineHeight: 1.7, marginBottom: 26, maxWidth: 360 }}>
           {t.heroDetail}
         </motion.p>
 
@@ -974,9 +1023,9 @@ function HeroScreen({ lang, setLang, onStart }: {
 }
 
 // ─── Quiz screen — premium card ───────────────────────────────────────────────
-function QuizScreen({ currentQ, selected, feedback, lang, onSelect }: {
+function QuizScreen({ currentQ, selected, feedback, lang, onSelect, theme }: {
   currentQ: number; selected: number | null; feedback: 'correct' | 'wrong' | null
-  lang: Lang; onSelect: (i: number) => void
+  lang: Lang; onSelect: (i: number) => void; theme: 'dark' | 'light'
 }) {
   const [displayed, setDisplayed] = useState('')
   const [cardVisible, setCardVisible] = useState(false)
@@ -1015,13 +1064,18 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect }: {
       }}>
         {/* Question card */}
         <div style={{
-          background: 'linear-gradient(155deg, rgba(20,14,100,.75) 0%, rgba(7,4,82,.85) 100%)',
-          border: `1px solid rgba(0,200,255,.14)`,
+          background: theme === 'dark'
+            ? 'linear-gradient(155deg, rgba(20,14,100,.75) 0%, rgba(7,4,82,.85) 100%)'
+            : 'linear-gradient(155deg, rgba(206,242,247,.9) 0%, rgba(228,251,254,.95) 100%)',
+          border: theme === 'dark' ? `1px solid rgba(0,200,255,.14)` : `1px solid rgba(28,22,197,.18)`,
           borderRadius: 24,
           backdropFilter: 'blur(24px)',
           overflow: 'hidden',
-          boxShadow: `0 0 0 1px rgba(0,200,255,.06), 0 32px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07)`,
+          boxShadow: theme === 'dark'
+            ? `0 0 0 1px rgba(0,200,255,.06), 0 32px 80px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.07)`
+            : `0 0 0 1px rgba(28,22,197,.05), 0 20px 48px rgba(28,22,197,.12), inset 0 1px 0 rgba(255,255,255,.8)`,
           marginBottom: 10,
+          transition: 'background 0.8s ease, border-color 0.8s ease, box-shadow 0.8s ease',
         }}>
           {/* colored top accent bar */}
           <div style={{
@@ -1048,16 +1102,17 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect }: {
 
             {/* typewriter question */}
             <p style={{
-              fontSize: '1.1rem', fontWeight: 600, color: OFF_WHITE,
+              fontSize: '1.1rem', fontWeight: 600, color: theme === 'dark' ? OFF_WHITE : DARK_BLUE,
               lineHeight: 1.65, minHeight: '4.8em',
               letterSpacing: '-.01em',
+              transition: 'color 0.8s ease',
             }}>
               {displayed}
               <span style={{
                 display: 'inline-block', width: 2, height: '1.1em',
-                background: TELENOR_BLUE, verticalAlign: 'text-bottom', marginLeft: 2,
+                background: theme === 'dark' ? TELENOR_BLUE : MID_BLUE, verticalAlign: 'text-bottom', marginLeft: 2,
                 opacity: displayed.length < q.text.length ? 1 : 0,
-                boxShadow: `0 0 8px ${TELENOR_BLUE}`,
+                boxShadow: theme === 'dark' ? `0 0 8px ${TELENOR_BLUE}` : `0 0 8px ${MID_BLUE}`,
                 transition: 'opacity .15s',
               }} />
             </p>
@@ -1093,7 +1148,7 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect }: {
             <OptionButton key={`${currentQ}-${i}`} index={i} text={text}
               selected={selected} feedback={feedback}
               correct={q.correct} onSelect={onSelect}
-              delay={i * 55}
+              delay={i * 55} theme={theme}
             />
           ))}
         </div>
@@ -1114,7 +1169,7 @@ function AnimCount({ to }: { to: number }) {
 }
 
 // ─── Results screen — with video ─────────────────────────────────────────────
-function ResultsScreen({ score, lang, onReplay }: { score: number; lang: Lang; onReplay: () => void }) {
+function ResultsScreen({ score, lang, onReplay, theme }: { score: number; lang: Lang; onReplay: () => void; theme: 'dark' | 'light' }) {
   const CIRC = Math.round(2 * Math.PI * 64)
   const [offset, setOffset] = useState(CIRC)
   const [visible, setVisible] = useState(false)
@@ -1145,17 +1200,22 @@ function ResultsScreen({ score, lang, onReplay }: { score: number; lang: Lang; o
         {/* score ring + title row */}
         <div style={{
           width: '100%', display: 'flex', alignItems: 'center', gap: 20,
-          background: 'linear-gradient(145deg, rgba(20,14,100,.7), rgba(7,4,82,.8))',
-          border: `1px solid rgba(0,200,255,.12)`,
+          background: theme === 'dark'
+            ? 'linear-gradient(145deg, rgba(20,14,100,.7), rgba(7,4,82,.8))'
+            : 'linear-gradient(145deg, rgba(232,253,255,.9), rgba(255,255,255,.95))',
+          border: theme === 'dark' ? `1px solid rgba(0,200,255,.12)` : `1px solid rgba(28,22,197,.12)`,
           borderRadius: 24, padding: '22px 24px',
           backdropFilter: 'blur(20px)',
-          boxShadow: `0 0 0 1px rgba(0,200,255,.06), 0 24px 60px rgba(0,0,0,.4)`,
+          boxShadow: theme === 'dark'
+            ? `0 0 0 1px rgba(0,200,255,.06), 0 24px 60px rgba(0,0,0,.4)`
+            : `0 0 0 1px rgba(28,22,197,.03), 0 20px 40px rgba(28,22,197,.08)`,
           animation: 'slideUp .5s .1s both',
+          transition: 'background 0.8s ease, border-color 0.8s ease',
         }}>
           {/* ring */}
           <div style={{ position: 'relative', width: 110, height: 110, flexShrink: 0 }}>
             <svg width="110" height="110" style={{ transform: 'rotate(-90deg)' }}>
-              <circle cx="55" cy="55" r="44" fill="none" stroke="rgba(28,22,197,.2)" strokeWidth="7" />
+              <circle cx="55" cy="55" r="44" fill="none" stroke={theme === 'dark' ? "rgba(28,22,197,.2)" : "rgba(28,22,197,.07)"} strokeWidth="7" />
               <circle cx="55" cy="55" r="44" fill="none"
                 stroke={ring} strokeWidth="7" strokeLinecap="round"
                 strokeDasharray={`${Math.round(2 * Math.PI * 44)} ${Math.round(2 * Math.PI * 44)}`}
@@ -1164,7 +1224,7 @@ function ResultsScreen({ score, lang, onReplay }: { score: number; lang: Lang; o
               />
             </svg>
             <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '1.9rem', fontWeight: 900, color: '#fff', lineHeight: 1, animation: 'countBounce .5s .3s both' }}>
+              <span style={{ fontSize: '1.9rem', fontWeight: 900, color: theme === 'dark' ? '#fff' : DARK_BLUE, lineHeight: 1, animation: 'countBounce .5s .3s both' }}>
                 <AnimCount to={score} />/3
               </span>
               <span style={{ fontSize: '.6rem', fontWeight: 700, color: ring, letterSpacing: '.12em', marginTop: 2 }}>
@@ -1175,20 +1235,20 @@ function ResultsScreen({ score, lang, onReplay }: { score: number; lang: Lang; o
 
           {/* title + sub + dots */}
           <div style={{ flex: 1 }}>
-            <h2 style={{ fontSize: '1.45rem', fontWeight: 900, fontStyle: 'italic', color: '#fff', lineHeight: 1.2, marginBottom: 6 }}>
+            <h2 style={{ fontSize: '1.45rem', fontWeight: 900, fontStyle: 'italic', color: theme === 'dark' ? '#fff' : DARK_BLUE, lineHeight: 1.2, marginBottom: 6 }}>
               {t.resultTitles[score]}
             </h2>
-            <p style={{ fontSize: '.82rem', color: LIGHT_BLUE, lineHeight: 1.55, marginBottom: 12 }}>
+            <p style={{ fontSize: '.82rem', color: theme === 'dark' ? LIGHT_BLUE : MID_BLUE, lineHeight: 1.55, marginBottom: 12 }}>
               {t.resultSubs[score]}
             </p>
             <div style={{ display: 'flex', gap: 8 }}>
               {QUESTIONS.map((_, i) => (
                 <div key={i} style={{
                   width: 32, height: 32, borderRadius: '50%',
-                  background: i < score ? 'rgba(74,222,128,.15)' : 'rgba(255,255,255,.05)',
-                  border: `1.5px solid ${i < score ? '#4ade80' : 'rgba(255,255,255,.1)'}`,
+                  background: i < score ? 'rgba(74,222,128,.15)' : (theme === 'dark' ? 'rgba(255,255,255,.05)' : 'rgba(7,4,82,.05)'),
+                  border: `1.5px solid ${i < score ? '#4ade80' : (theme === 'dark' ? 'rgba(255,255,255,.1)' : 'rgba(7,4,82,.12)')}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '.78rem', color: i < score ? '#4ade80' : 'rgba(255,255,255,.22)',
+                  fontSize: '.78rem', color: i < score ? '#4ade80' : (theme === 'dark' ? 'rgba(255,255,255,.22)' : 'rgba(7,4,82,.35)'),
                   boxShadow: i < score ? '0 0 10px rgba(74,222,128,.3)' : 'none',
                   transition: `all .35s ${i * .12}s ease`,
                 }}>
@@ -1203,8 +1263,10 @@ function ResultsScreen({ score, lang, onReplay }: { score: number; lang: Lang; o
         <div style={{ width: '100%', animation: 'slideUp .5s .2s both' }}>
           <div style={{
             position: 'relative',
-            background: 'linear-gradient(135deg, rgba(192,38,211,.08) 0%, rgba(14,165,233,.08) 100%)',
-            border: '1px solid rgba(255,255,255,.07)',
+            background: theme === 'dark'
+              ? 'linear-gradient(135deg, rgba(192,38,211,.08) 0%, rgba(14,165,233,.08) 100%)'
+              : 'linear-gradient(135deg, rgba(192,38,211,.04) 0%, rgba(28,22,197,.04) 100%)',
+            border: theme === 'dark' ? '1px solid rgba(255,255,255,.07)' : '1px solid rgba(7,4,82,.08)',
             borderRadius: 20,
             padding: '18px 24px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
@@ -1212,7 +1274,7 @@ function ResultsScreen({ score, lang, onReplay }: { score: number; lang: Lang; o
           }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(224,64,251,.5) 40%, rgba(0,200,255,.5) 70%, transparent)' }} />
             <div>
-              <div style={{ fontSize: '.6rem', fontWeight: 700, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.3)', marginBottom: 4 }}>
+              <div style={{ fontSize: '.6rem', fontWeight: 700, letterSpacing: '.2em', textTransform: 'uppercase', color: theme === 'dark' ? 'rgba(255,255,255,.3)' : 'rgba(7,4,82,.45)', marginBottom: 4 }}>
                 Your invitation to
               </div>
               <img
@@ -1222,15 +1284,15 @@ function ResultsScreen({ score, lang, onReplay }: { score: number; lang: Lang; o
                   width: 'clamp(70px, 16vw, 100px)',
                   height: 'auto',
                   display: 'block',
-                  filter: 'drop-shadow(0 2px 12px rgba(224,64,251,.5))',
+                  filter: theme === 'dark' ? 'drop-shadow(0 2px 12px rgba(224,64,251,.5))' : 'drop-shadow(0 2px 6px rgba(28,22,197,.25))',
                 }}
               />
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '.65rem', color: 'rgba(255,255,255,.35)', letterSpacing: '.08em', marginBottom: 4 }}>Powered by</div>
+              <div style={{ fontSize: '.65rem', color: theme === 'dark' ? 'rgba(255,255,255,.35)' : 'rgba(7,4,82,.45)', letterSpacing: '.08em', marginBottom: 4 }}>Powered by</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
                 <GpMark size={20} />
-                <span style={{ fontSize: '.72rem', fontWeight: 700, color: 'rgba(255,255,255,.55)', letterSpacing: '.1em' }}>Grameenphone</span>
+                <span style={{ fontSize: '.72rem', fontWeight: 700, color: theme === 'dark' ? 'rgba(255,255,255,.55)' : DARK_BLUE, letterSpacing: '.1em' }}>Grameenphone</span>
               </div>
             </div>
           </div>
@@ -1241,9 +1303,9 @@ function ResultsScreen({ score, lang, onReplay }: { score: number; lang: Lang; o
           {/* instruction text */}
           <p style={{
             textAlign: 'center', fontSize: '.95rem', fontWeight: 700,
-            color: '#fff', lineHeight: 1.6,
+            color: theme === 'dark' ? '#fff' : DARK_BLUE, lineHeight: 1.6,
             marginBottom: 16, letterSpacing: '.01em',
-            textShadow: '0 0 24px rgba(0,200,255,.4)',
+            textShadow: theme === 'dark' ? '0 0 24px rgba(0,200,255,.4)' : 'none',
           }}>
             {t.arInstruction}
           </p>
@@ -1306,6 +1368,15 @@ function ResultsScreen({ score, lang, onReplay }: { score: number; lang: Lang; o
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 export default function App() {
+  const [theme, setTheme]         = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('gp-quiz-theme')
+    return (saved === 'light' || saved === 'dark') ? saved : 'dark'
+  })
+
+  useEffect(() => {
+    localStorage.setItem('gp-quiz-theme', theme)
+  }, [theme])
+
   const [screen, setScreen]       = useState<'hero' | 'quiz' | 'results'>('hero')
   const [lang, setLang]           = useState<Lang>('bn')
   const [currentQ, setCurrentQ]   = useState(0)
@@ -1347,17 +1418,17 @@ export default function App() {
 
   return (
     <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
-      <style>{GLOBAL_CSS}</style>
-      <AuroraBackground />
+      <style>{getGlobalCSS(theme)}</style>
+      <AuroraBackground theme={theme} />
       <ConfettiCanvas launchRef={launchConfetti} />
 
-      {screen !== 'hero' && <TopBar lang={lang} setLang={setLang} />}
+      {screen !== 'hero' && <TopBar lang={lang} setLang={setLang} theme={theme} setTheme={setTheme} />}
       {screen === 'quiz' && <ProgressBar currentQ={currentQ} />}
 
       <div style={{ height: '100vh', overflowY: screen === 'quiz' ? 'auto' : 'hidden' }}>
-        {screen === 'hero'    && <HeroScreen lang={lang} setLang={setLang} onStart={handleStart} />}
-        {screen === 'quiz'    && <QuizScreen currentQ={currentQ} selected={selected} feedback={feedback} lang={lang} onSelect={handleSelect} />}
-        {screen === 'results' && <ResultsScreen score={score} lang={lang} onReplay={handleReplay} />}
+        {screen === 'hero'    && <HeroScreen lang={lang} setLang={setLang} onStart={handleStart} theme={theme} setTheme={setTheme} />}
+        {screen === 'quiz'    && <QuizScreen currentQ={currentQ} selected={selected} feedback={feedback} lang={lang} onSelect={handleSelect} theme={theme} />}
+        {screen === 'results' && <ResultsScreen score={score} lang={lang} onReplay={handleReplay} theme={theme} />}
       </div>
 
 
