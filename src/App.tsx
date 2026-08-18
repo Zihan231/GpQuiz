@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence, animate } from 'framer-motion'
 import { Brain, Zap, ShieldCheck, Globe, FlaskConical, Radio, Bot, HelpCircle, Timer, Ticket, Sparkles, ChevronRight, ArrowRight } from 'lucide-react'
-import gpLogoUrl from '@/imports/Grameenphone_idC0j-VyWQ_0.png'
-import aiAndILogo from '@/imports/AI_I-removebg-preview.png'
+const gpLogoUrl = '/Grameenphone_idC0j-VyWQ_0.png'
+const aiAndILogo = '/AI_I-removebg-preview.png'
 import campaignVideo from '@/imports/vidssave.com_Ek-er_Moddhei_Onek___GP_X___PritomHasan__ft._Critical_Mahmood___Fazlu_Majhi__Official_Music_Video__720P.mp4'
 
 // ─── Telenor Brand Palette (from official colour guide) ──────────────────────
@@ -790,13 +790,13 @@ function OptionButton({ index, text, selected, feedback, correct, onSelect, dela
         }} />
       )}
 
-      {/* hover shimmer — driven by CSS :hover, no state needed */}
+      {/* hover shimmer / scanning effect */}
       {!disabled && (
-        <div className="option-shimmer" style={{
+        <div style={{
           position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 16,
-          background: `linear-gradient(105deg, transparent 35%, rgba(0,200,255,.05) 50%, transparent 65%)`,
+          background: `linear-gradient(105deg, transparent 35%, ${theme === 'dark' ? 'rgba(0,200,255,.05)' : 'rgba(28,22,197,.04)'} 50%, transparent 65%)`,
           backgroundSize: '200%',
-          opacity: 0,
+          animation: 'shimmer 4.5s linear infinite',
         }} />
       )}
     </button>
@@ -1031,6 +1031,25 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect, theme }: {
   const [cardVisible, setCardVisible] = useState(false)
   const q = QUESTIONS[currentQ]
 
+  // Dynamic 3D tilt coordinates
+  const tiltRef = useRef<HTMLDivElement>(null)
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const el = tiltRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const x = e.clientX - rect.left - rect.width / 2
+    const y = e.clientY - rect.top - rect.height / 2
+    // rotate up to 10 degrees
+    const rX = -(y / (rect.height / 2)) * 10
+    const rY = (x / (rect.width / 2)) * 10
+    el.style.transform = `perspective(1000px) rotateX(${rX}deg) rotateY(${rY}deg) scale3d(1.02, 1.02, 1.02)`
+  }
+  const handleMouseLeave = () => {
+    const el = tiltRef.current
+    if (!el) return
+    el.style.transform = 'perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)'
+  }
+
   useEffect(() => {
     setDisplayed(''); setCardVisible(false)
     const t1 = setTimeout(() => setCardVisible(true), 60)
@@ -1056,12 +1075,18 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect, theme }: {
       padding: '84px 14px 120px', overflowY: 'auto',
     }}>
       {/* outer glow card wrapper */}
-      <div style={{
-        width: '100%', maxWidth: 540,
-        opacity: cardVisible ? 1 : 0,
-        transform: cardVisible ? 'translateY(0) scale(1)' : 'translateY(24px) scale(.97)',
-        transition: 'opacity .4s ease, transform .4s cubic-bezier(.34,1.1,.64,1)',
-      }}>
+      <div 
+        ref={tiltRef}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        style={{
+          width: '100%', maxWidth: 540,
+          opacity: cardVisible ? 1 : 0,
+          transform: cardVisible ? 'translateY(0) scale(1)' : 'translateY(24px) scale(.97)',
+          transition: 'opacity .4s ease, transform .2s ease',
+          transformStyle: 'preserve-3d',
+        }}
+      >
         {/* Question card */}
         <div style={{
           background: theme === 'dark'
@@ -1076,6 +1101,7 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect, theme }: {
             : `0 0 0 1px rgba(28,22,197,.05), 0 20px 48px rgba(28,22,197,.12), inset 0 1px 0 rgba(255,255,255,.8)`,
           marginBottom: 10,
           transition: 'background 0.8s ease, border-color 0.8s ease, box-shadow 0.8s ease',
+          transform: 'translateZ(20px)', // Elevates the content in 3D perspective space
         }}>
           {/* colored top accent bar */}
           <div style={{
@@ -1264,17 +1290,23 @@ function ResultsScreen({ score, lang, onReplay, theme }: { score: number; lang: 
           <div style={{
             position: 'relative',
             background: theme === 'dark'
-              ? 'linear-gradient(135deg, rgba(192,38,211,.08) 0%, rgba(14,165,233,.08) 100%)'
-              : 'linear-gradient(135deg, rgba(192,38,211,.04) 0%, rgba(28,22,197,.04) 100%)',
-            border: theme === 'dark' ? '1px solid rgba(255,255,255,.07)' : '1px solid rgba(7,4,82,.08)',
+              ? 'linear-gradient(135deg, rgba(192,38,211,.15) 0%, rgba(14,165,233,.15) 100%)'
+              : 'linear-gradient(135deg, rgba(192,38,211,.08) 0%, rgba(28,22,197,.08) 100%)',
+            border: theme === 'dark' ? '1px solid rgba(255,255,255,.12)' : '1px solid rgba(28,22,197,.15)',
             borderRadius: 20,
             padding: '18px 24px',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
             backdropFilter: 'blur(16px)',
+            boxShadow: theme === 'dark'
+              ? '0 16px 40px rgba(192,38,211,.15), inset 0 0 20px rgba(255,255,255,.05)'
+              : '0 16px 40px rgba(28,22,197,.08), inset 0 0 20px rgba(255,255,255,.4)',
+            // 3D dynamic auto-drift bob animation
+            transform: 'perspective(800px) rotateX(4deg) rotateY(-8deg)',
+            animation: 'drift 6s ease-in-out infinite alternate',
           }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(224,64,251,.5) 40%, rgba(0,200,255,.5) 70%, transparent)' }} />
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 1, background: 'linear-gradient(90deg, transparent, rgba(224,64,251,.7) 40%, rgba(0,200,255,.7) 70%, transparent)' }} />
             <div>
-              <div style={{ fontSize: '.6rem', fontWeight: 700, letterSpacing: '.2em', textTransform: 'uppercase', color: theme === 'dark' ? 'rgba(255,255,255,.3)' : 'rgba(7,4,82,.45)', marginBottom: 4 }}>
+              <div style={{ fontSize: '.6rem', fontWeight: 700, letterSpacing: '.2em', textTransform: 'uppercase', color: theme === 'dark' ? 'rgba(255,255,255,.45)' : 'rgba(7,4,82,.6)', marginBottom: 4 }}>
                 Your invitation to
               </div>
               <img
@@ -1284,17 +1316,24 @@ function ResultsScreen({ score, lang, onReplay, theme }: { score: number; lang: 
                   width: 'clamp(70px, 16vw, 100px)',
                   height: 'auto',
                   display: 'block',
-                  filter: theme === 'dark' ? 'drop-shadow(0 2px 12px rgba(224,64,251,.5))' : 'drop-shadow(0 2px 6px rgba(28,22,197,.25))',
+                  filter: theme === 'dark' ? 'drop-shadow(0 2px 12px rgba(224,64,251,.8))' : 'drop-shadow(0 2px 8px rgba(28,22,197,.35))',
                 }}
               />
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '.65rem', color: theme === 'dark' ? 'rgba(255,255,255,.35)' : 'rgba(7,4,82,.45)', letterSpacing: '.08em', marginBottom: 4 }}>Powered by</div>
+              <div style={{ fontSize: '.65rem', color: theme === 'dark' ? 'rgba(255,255,255,.45)' : 'rgba(7,4,82,.6)', letterSpacing: '.08em', marginBottom: 4 }}>Powered by</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
                 <GpMark size={20} />
-                <span style={{ fontSize: '.72rem', fontWeight: 700, color: theme === 'dark' ? 'rgba(255,255,255,.55)' : DARK_BLUE, letterSpacing: '.1em' }}>Grameenphone</span>
+                <span style={{ fontSize: '.72rem', fontWeight: 700, color: theme === 'dark' ? 'rgba(255,255,255,.75)' : DARK_BLUE, letterSpacing: '.1em' }}>Grameenphone</span>
               </div>
             </div>
+            {/* Shimmer overlay loop */}
+            <div style={{
+              position: 'absolute', inset: 0, pointerEvents: 'none', borderRadius: 20,
+              background: 'linear-gradient(110deg, transparent 35%, rgba(255,255,255,.08) 50%, transparent 65%)',
+              backgroundSize: '200%',
+              animation: 'shimmer 4.5s linear infinite',
+            }} />
           </div>
         </div>
 
