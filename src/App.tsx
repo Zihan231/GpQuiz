@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { motion, AnimatePresence, animate } from 'framer-motion'
 import { Brain, Zap, ShieldCheck, Globe, FlaskConical, Radio, Bot, HelpCircle, Timer, Ticket, Sparkles, ChevronRight, ArrowRight } from 'lucide-react'
 import gpLogoUrl from '@/imports/Grameenphone_idC0j-VyWQ_0.png'
-import aiAndILogo from '@/imports/AI_I-removebg-preview.png'
+import { aiAndILogo } from '@/aiAndILogo_b64'
 import campaignVideo from '@/imports/vidssave.com_Ek-er_Moddhei_Onek___GP_X___PritomHasan__ft._Critical_Mahmood___Fazlu_Majhi__Official_Music_Video__720P.mp4'
 
 // ─── Telenor Brand Palette (from official colour guide) ──────────────────────
