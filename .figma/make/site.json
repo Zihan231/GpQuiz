@@ -1,0 +1,10 @@
+{
+  "description": "Streamline your creative process with a tool that generates tailored prompts for writers and artists, enhancing inspiration and productivity.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}
