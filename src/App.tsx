@@ -1443,7 +1443,7 @@ function QuizScreen({ currentQ, selected, feedback, lang, onSelect, theme }: {
             </div>
 
             {/* Options list */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, transform: 'translateZ(30px)', position: 'relative', zIndex: 10 }}>
               {q.options.map((text, i) => (
                 <OptionButton key={`${currentQ}-${i}`} index={i} text={text}
                   selected={selected} feedback={feedback}
