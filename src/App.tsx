@@ -1288,15 +1288,6 @@ function HeroScreen({ lang, setLang, onStart, theme, setTheme }: {
             ))}
             {/* Shimmer sweep */}
             <span style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, transparent 35%, rgba(255,255,255,.16) 50%, transparent 65%)', pointerEvents: 'none', animation: 'btnShimmer 3.8s ease-in-out infinite' }} />
-            {/* Neon border chase */}
-            <span style={{
-              position: 'absolute', inset: 0, borderRadius: 40,
-              background: 'linear-gradient(90deg, transparent, rgba(0,200,255,.7), rgba(192,38,211,.7), transparent) no-repeat',
-              backgroundSize: '200% 2px',
-              backgroundPosition: '0% 0%',
-              animation: 'neonChase 2.2s linear infinite',
-              pointerEvents: 'none',
-            }} />
             {t.start}
             <ArrowRight size={18} strokeWidth={2.5} />
           </button>
